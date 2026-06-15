@@ -1,0 +1,9 @@
+/* ARTickle Academy – base styles */
+/* Tailwind utility classes are loaded via CDN in index.html */
+/* This file provides fallback constraints for critical elements */
+
+/* Logo safety: ensure logo never exceeds container even if Tailwind CDN fails */
+img[src*="logo"] {
+  max-width: 100%;
+  height: auto;
+}

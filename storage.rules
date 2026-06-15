@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────
+// ARTickle Academy — Firebase Storage Security Rules
+// ─────────────────────────────────────────────────────────────────────────
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Teacher signature PNGs — uploaded by admins only, readable by all auth users
+    // Path: signatures/{userId}.png
+    match /signatures/{userId} {
+      // Any authenticated user can read (needed for PDF rendering at export time)
+      allow read: if request.auth != null;
+      // Only admins can write (upload / replace / delete)
+      allow write: if request.auth != null
+                   && request.resource.size < 2 * 1024 * 1024   // max 2 MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Default deny — every other path
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

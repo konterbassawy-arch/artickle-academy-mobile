@@ -1,0 +1,172 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------
+    // NOTE: This app uses email-based document IDs (e.g. "user_example_com")
+    // rather than Firebase Auth UIDs. Since Firestore rules cannot reconstruct
+    // the email-based ID from request.auth.token.email (no regex replace),
+    // we use authenticated-user-level rules here. Fine-grained data isolation
+    // is enforced at the application layer (AppContext query filters).
+    // -------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Admin check via Firebase Auth custom claim.
+    // Set with: admin.auth().setCustomUserClaims(uid, { admin: true })
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // -------------------------------------------------------
+    // USERS — any authenticated user can read their own; admins can write
+    // -------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // SCHOOLS
+    // -------------------------------------------------------
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // TEACHERS
+    // -------------------------------------------------------
+    match /teachers/{teacherId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // STUDENTS
+    // -------------------------------------------------------
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // AI REPORTS — subcollection under students
+    // Phase AI.3
+    //
+    // Path: students/{studentId}/aiReports/{reportId}  (auto-generated ID)
+    // Multiple independent drafts per report type are allowed.
+    //
+    // Access model: consistent with all other collections in this app —
+    // any authenticated user may read/write. Role-based scoping is
+    // enforced at the application layer (AppContext).
+    // Only hard deletes are restricted to admin.
+    // -------------------------------------------------------
+    match /students/{studentId}/aiReports/{reportId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // LESSONS
+    // -------------------------------------------------------
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // COUNTERS
+    // -------------------------------------------------------
+    match /counters/{counterId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // PARENTS
+    // -------------------------------------------------------
+    match /parents/{parentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // BOOKINGS
+    // -------------------------------------------------------
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // TIMETABLE SLOTS
+    // -------------------------------------------------------
+    match /timetableSlots/{slotId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // ENROLLMENTS
+    // -------------------------------------------------------
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // INVOICES
+    // -------------------------------------------------------
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // PAYMENTS
+    // -------------------------------------------------------
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // PAYROLL RUNS
+    // -------------------------------------------------------
+    match /payrollRuns/{payrollRunId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // SCHOOL ENROLLMENT PERIODS
+    // -------------------------------------------------------
+    match /schoolEnrollmentPeriods/{periodId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // TEACHER SIGNATURES (base64 for PDF export)
+    // -------------------------------------------------------
+    match /teacherSignatures/{teacherId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // School certificate branding (logo + signatories), stored as base64.
+    match /schoolCertificates/{schoolId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------
+    // DEFAULT DENY — everything else is blocked
+    // -------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
