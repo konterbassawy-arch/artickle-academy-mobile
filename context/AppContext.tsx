@@ -184,6 +184,8 @@ interface AppContextType extends AppState {
    * pass `password` to confirm; Google accounts re-authenticate via popup if needed.
    */
   deleteMyAccount: (password?: string) => Promise<{ success: boolean; message?: string }>;
+  /** True if the signed-in user logs in with email/password (so deletion must verify it). */
+  isPasswordAccount: () => boolean;
   addLesson: (lessonData: Omit<Lesson, 'id'>) => Promise<void>;
   updateLesson: (id: string, data: Partial<Lesson>) => Promise<void>;
   updateLessonSchoolComment: (id: string, schoolAdminComment: string, schoolAdminInternalComment: string) => Promise<void>;
@@ -2541,19 +2543,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPersistenceMode('local');
   };
 
+  // True if the signed-in user authenticates with email/password (vs. Google).
+  const isPasswordAccount = () =>
+    auth.currentUser?.providerData?.some(p => p?.providerId === 'password') ?? false;
+
   // Self-service account deletion (App Store 5.1.1(v) / Google Play requirement).
-  // Deletes the user's own Firestore data *while still authenticated*, then deletes the
-  // Firebase Auth login. If Firebase reports the session is too old, we re-authenticate
-  // (password credential, or Google popup) and retry once.
+  // Re-authentication is ALWAYS required first as a confirmation safeguard: password
+  // accounts must supply (and pass) their password; Google accounts re-confirm via popup.
+  // Only after that do we delete the user's own Firestore data and Firebase Auth login.
   const deleteMyAccount = async (password?: string): Promise<{ success: boolean; message?: string }> => {
     const fbUser = auth.currentUser;
     const cu = state.currentUser;
     if (!fbUser || !cu) return { success: false, message: 'You are not signed in.' };
 
-    // Stop snapshot listeners first so they don't fire on the doc we're about to delete.
-    stopListeners();
+    const usesPassword = fbUser.providerData.some(p => p?.providerId === 'password');
 
-    // 1) Delete the user's own data (allowed by rules for the authenticated user).
+    // 1) Confirm identity by re-authenticating BEFORE deleting anything.
+    try {
+      if (usesPassword) {
+        if (!password) {
+          return { success: false, message: 'Please enter your password to confirm account deletion.' };
+        }
+        const cred = EmailAuthProvider.credential(fbUser.email || '', password);
+        await reauthenticateWithCredential(fbUser, cred);
+      } else {
+        await reauthenticateWithPopup(fbUser, googleProvider);
+      }
+    } catch (e: any) {
+      console.error('deleteMyAccount: re-authentication failed', e);
+      const wrongPass =
+        e?.code === 'auth/wrong-password' ||
+        e?.code === 'auth/invalid-credential' ||
+        e?.code === 'auth/invalid-login-credentials';
+      return {
+        success: false,
+        message: wrongPass
+          ? 'Incorrect password. Please try again.'
+          : e?.message || 'Could not confirm it was you. Please try again.'
+      };
+    }
+
+    // 2) Stop listeners, then delete the user's own data (allowed by rules while authed).
+    stopListeners();
     try {
       await deleteDoc(doc(db, 'users', cu.id));
       if (cu.role === Role.TEACHER) {
@@ -2564,37 +2595,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Continue — still attempt to delete the auth login so the account is removed.
     }
 
-    // 2) Delete the Firebase Auth login, re-authenticating if the session is stale.
-    const isPasswordAccount = fbUser.providerData.some(p => p?.providerId === 'password');
+    // 3) Delete the Firebase Auth login (session is fresh from the re-auth above).
     try {
       await fbDeleteUser(fbUser);
     } catch (e: any) {
-      if (e?.code === 'auth/requires-recent-login') {
-        try {
-          if (isPasswordAccount) {
-            if (!password) {
-              return { success: false, message: 'Please enter your password to confirm account deletion.' };
-            }
-            const cred = EmailAuthProvider.credential(fbUser.email || '', password);
-            await reauthenticateWithCredential(fbUser, cred);
-          } else {
-            await reauthenticateWithPopup(fbUser, googleProvider);
-          }
-          await fbDeleteUser(fbUser);
-        } catch (e2: any) {
-          console.error('deleteMyAccount: re-auth/delete failed', e2);
-          return {
-            success: false,
-            message: e2?.message || 'Could not confirm it was you. Please sign out, sign back in, and try again.'
-          };
-        }
-      } else {
-        console.error('deleteMyAccount: auth delete failed', e);
-        return { success: false, message: e?.message || 'Failed to delete account.' };
-      }
+      console.error('deleteMyAccount: auth delete failed', e);
+      return { success: false, message: e?.message || 'Failed to delete account.' };
     }
 
-    // 3) Reset local app state.
+    // 4) Reset local app state.
     setState(defaultState);
     setPersistenceMode('local');
     return { success: true };
@@ -2614,6 +2623,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loginWithGoogle,
       logout,
       deleteMyAccount,
+      isPasswordAccount,
       addLesson,
       updateLesson,
       repairSchoolRates,

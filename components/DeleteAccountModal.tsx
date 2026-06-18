@@ -11,13 +11,16 @@ interface DeleteAccountModalProps {
  * so we can re-authenticate if the session is stale.
  */
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ onClose }) => {
-  const { deleteMyAccount, currentUser } = useApp();
+  const { deleteMyAccount, currentUser, isPasswordAccount } = useApp();
   const [confirmText, setConfirmText] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const canDelete = confirmText.trim().toUpperCase() === 'DELETE' && !busy;
+  const requiresPassword = isPasswordAccount();
+  const confirmed = confirmText.trim().toUpperCase() === 'DELETE';
+  const passwordOk = !requiresPassword || password.trim().length > 0;
+  const canDelete = confirmed && passwordOk && !busy;
 
   const handleDelete = async () => {
     if (!canDelete) return;
@@ -56,16 +59,24 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ onClose 
           placeholder="DELETE"
         />
 
-        <label className="block mt-4 text-xs font-medium text-slate-400 uppercase tracking-wide">
-          Password <span className="normal-case text-slate-500">(leave blank if you sign in with Google)</span>
-        </label>
-        <input
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-lg bg-slate-800 text-white px-3 py-2 ring-1 ring-slate-700 focus:ring-red-500 outline-none"
-          placeholder="••••••••"
-        />
+        {requiresPassword ? (
+          <>
+            <label className="block mt-4 text-xs font-medium text-slate-400 uppercase tracking-wide">
+              Password <span className="text-red-400">(required)</span>
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-lg bg-slate-800 text-white px-3 py-2 ring-1 ring-slate-700 focus:ring-red-500 outline-none"
+              placeholder="••••••••"
+            />
+          </>
+        ) : (
+          <p className="mt-4 text-xs text-slate-400">
+            You'll be asked to confirm with Google before your account is deleted.
+          </p>
+        )}
 
         {error && (
           <p className="mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/20 rounded-lg px-3 py-2">
