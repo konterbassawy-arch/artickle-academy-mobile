@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ARTickle Academy</string>
+    <string name="title_activity_main">ARTickle Academy</string>
+    <string name="package_name">com.artickle.academy</string>
+    <string name="custom_url_scheme">com.artickle.academy</string>
+</resources>
