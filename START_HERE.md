@@ -9,6 +9,28 @@ app. Read top to bottom once; then work the "Your next actions" list at the bott
 
 ---
 
+## Progress so far (updated 2026-06-18)
+The coding for the first three phases is **done and on GitHub** (`main`). Remaining work is
+mostly your accounts + a Mac with Xcode/Android Studio.
+
+- ✅ **Phase A — store-ready code.** All libraries (React, Tailwind, jsPDF, SheetJS, JSZip,
+  Firebase) are now bundled via npm instead of fetched from CDNs. Tailwind compiles at build
+  time. The app no longer downloads code at runtime — the #1 App Store blocker is cleared.
+- ✅ **Phase B — Capacitor wrap.** iOS + Android native projects generated (`ios/`, `android/`),
+  bundle id `com.artickle.academy`, app icons + splash screens generated from the logo.
+- ✅ **Phase C — required store features (code complete):**
+  - In-app **account deletion** (with mandatory re-auth) — tested on the web.
+  - **Native Google sign-in** for the app shell — code done; needs Firebase config files +
+    SHA fingerprints to run on a device (see `docs/NATIVE_AUTH_SETUP.md`).
+  - **Sign in with Apple** — code + iOS button done; needs the Apple Developer account
+    (Services ID/key + Xcode capability) to run.
+- ⏳ **Phase D/E — accounts, store assets, build & submit.** Needs your Apple ($99/yr) + Google
+  ($25) developer accounts and a Mac with Xcode / Android Studio (not in the dev environment).
+
+> ⚙️ **Workflow note:** auto-commit + auto-push to `main` is now **enabled** (per owner request),
+> so changes are saved to GitHub automatically. The branch→PR review flow below is currently
+> bypassed — re-enable GitHub branch protection if you want the review gate back.
+
 ## 0. What you have right now (already done ✅)
 - ✅ **Isolated workspace** = this folder `artickle-academy-mobile` — a separate copy of the app.
 - ✅ **Separate GitHub repo:** https://github.com/konterbassawy-arch/artickle-academy-mobile

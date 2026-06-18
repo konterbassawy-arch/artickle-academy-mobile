@@ -12,8 +12,11 @@ folder/repo and is **never** touched from here.
   `context/AppContext.tsx` that throws if no project id is set, so it can't silently fall back
   to production.
 - The `restore-from-backup.ts` script refuses to target `artickle-academy` unless `--force-prod`.
-- There is **no auto-commit/auto-push hook** here (unlike the live repo) — work goes through
-  review (see below), nothing reaches `main` automatically.
+- ⚙️ **Auto-commit/auto-push to `main` is currently ENABLED** (owner's choice — Stop hook in
+  `.claude/settings.json` running `scripts/auto-commit-push.sh`). Changes are committed and
+  pushed to `main` automatically after each turn, so the branch→PR review flow below is
+  currently bypassed. To restore the review gate, remove that hook and turn on GitHub branch
+  protection. Secrets stay safe (`.env.local`, `*service-account*.json` are gitignored).
 
 ## What is what
 | | This (mobile/dev) | Live (do not touch) |
