@@ -41,6 +41,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
+  signInWithCredential,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
@@ -49,6 +50,8 @@ import {
   reauthenticateWithPopup,
   EmailAuthProvider
 } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 // ---------------------------
 // Config
@@ -2486,13 +2489,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Inside the native app shell, Google's web popup/redirect OAuth does not work, so we
+  // use the native sign-in (Capacitor plugin) to obtain a Google credential, then sign in
+  // to the Firebase JS SDK with it — keeping the existing onAuthStateChanged flow intact.
+  const isNativePlatform = () => Capacitor.isNativePlatform();
+
+  const getNativeGoogleCredential = async () => {
+    const result = await FirebaseAuthentication.signInWithGoogle();
+    const idToken = result.credential?.idToken ?? null;
+    const accessToken = (result.credential as any)?.accessToken ?? null;
+    return GoogleAuthProvider.credential(idToken, accessToken);
+  };
+
   const loginWithGoogle = async () => {
     try {
+      if (isNativePlatform()) {
+        const cred = await getNativeGoogleCredential();
+        await signInWithCredential(auth, cred);
+        return { success: true };
+      }
       await signInWithPopup(auth, googleProvider);
       return { success: true };
     } catch (e: any) {
-      // Fallback to redirect if popup is blocked
-      if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request') {
+      // Web only: fall back to redirect if the popup is blocked.
+      if (!isNativePlatform() && (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request')) {
         try {
           await signInWithRedirect(auth, googleProvider);
           return { success: true };
@@ -2565,6 +2585,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return { success: false, message: 'Please enter your password to confirm account deletion.' };
         }
         const cred = EmailAuthProvider.credential(fbUser.email || '', password);
+        await reauthenticateWithCredential(fbUser, cred);
+      } else if (isNativePlatform()) {
+        // Native: re-run the native Google sign-in to get a fresh credential.
+        const cred = await getNativeGoogleCredential();
         await reauthenticateWithCredential(fbUser, cred);
       } else {
         await reauthenticateWithPopup(fbUser, googleProvider);

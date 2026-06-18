@@ -11,13 +11,14 @@
     "restore": "tsx scripts/restore-from-backup.ts"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
     "@types/file-saver": "^2.0.7",
     "docx": "^9.6.1",
     "file-saver": "^2.0.5",
-    "firebase": "^10.8.0",
+    "firebase": "^12.15.0",
     "jspdf": "^2.5.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
