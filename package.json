@@ -11,7 +11,9 @@
     "restore": "tsx scripts/restore-from-backup.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@types/file-saver": "^2.0.7",
     "docx": "^9.6.1",
     "file-saver": "^2.0.5",
@@ -23,6 +25,8 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.0",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.5.0",
