@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Role } from '../types';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, logout, persistenceMode } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   const portalPrefix = currentUser?.role === Role.ADMIN ? '/admin'
     : currentUser?.role === Role.TEACHER ? '/teacher'
@@ -218,8 +220,15 @@ export const Sidebar: React.FC = () => {
             >
               Sign Out
             </button>
+            <button
+              onClick={() => setShowDeleteAccount(true)}
+              className="w-full mt-1 py-2 px-3 rounded-lg text-slate-600 hover:text-red-300 hover:bg-red-500/10 text-xs font-medium transition-colors"
+            >
+              Delete Account
+            </button>
           </div>
       </div>
+      {showDeleteAccount && <DeleteAccountModal onClose={() => setShowDeleteAccount(false)} />}
     </div>
   );
 };
