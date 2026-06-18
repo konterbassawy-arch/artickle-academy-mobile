@@ -23,6 +23,12 @@ firebase-service-account.json
 *service-account*.json
 *serviceAccount*.json
 
+# Claude — personal/local settings stay local; shared config is .claude/settings.json
+.claude/settings.local.json
+# Backup ZIPs used for seeding (may contain real data) — keep out of git
+backups/
+*.backup.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
