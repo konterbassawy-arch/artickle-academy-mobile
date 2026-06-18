@@ -2518,6 +2518,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await signInWithCredential(auth, credential);
       return { success: true };
     } catch (e: any) {
+      // On the web, Apple sign-in needs an Apple Services ID (set up with the Apple Developer
+      // account). Until then Firebase reports the provider isn't enabled — show a clear note.
+      const notConfigured =
+        e?.code === 'auth/operation-not-allowed' ||
+        e?.code === 'auth/unauthorized-domain' ||
+        e?.code === 'auth/argument-error';
+      if (notConfigured) {
+        return {
+          success: false,
+          message: 'Sign in with Apple isn’t set up yet — it will work once the Apple Developer account is configured. Please use email or Google for now.'
+        };
+      }
+      // User dismissed the Apple/popup sheet — not an error worth shouting about.
+      if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') {
+        return { success: false, message: '' };
+      }
       return { success: false, message: e?.message || 'Sign in with Apple failed' };
     }
   };

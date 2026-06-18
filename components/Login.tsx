@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext';
 
 // Apple requires "Sign in with Apple" on iOS whenever another social login (Google) is
-// offered. It uses the native Apple sheet, so we only surface the button on iOS.
-const showAppleSignIn = Capacitor.getPlatform() === 'ios';
+// offered. On iOS it uses the native Apple sheet; on the web it needs an Apple Services ID
+// (set up with the Apple Developer account) before it can actually authenticate.
+// Shown on all platforms per owner request — the web tap fails gracefully until configured.
+const showAppleSignIn = true;
 
 export const Login: React.FC = () => {
   const { login, loginWithGoogle, loginWithApple, authError } = useApp();
