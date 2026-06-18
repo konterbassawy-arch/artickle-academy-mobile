@@ -43,7 +43,11 @@ import {
   signInWithRedirect,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signOut
+  signOut,
+  deleteUser as fbDeleteUser,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  EmailAuthProvider
 } from 'firebase/auth';
 
 // ---------------------------
@@ -173,6 +177,13 @@ interface AppContextType extends AppState {
   login: (email: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  /**
+   * Deletes the signed-in user's own account: their Firestore record(s) and their
+   * Firebase Auth login. Required by the App Store (5.1.1(v)) and Google Play — users
+   * must be able to delete their account from inside the app. For password accounts,
+   * pass `password` to confirm; Google accounts re-authenticate via popup if needed.
+   */
+  deleteMyAccount: (password?: string) => Promise<{ success: boolean; message?: string }>;
   addLesson: (lessonData: Omit<Lesson, 'id'>) => Promise<void>;
   updateLesson: (id: string, data: Partial<Lesson>) => Promise<void>;
   updateLessonSchoolComment: (id: string, schoolAdminComment: string, schoolAdminInternalComment: string) => Promise<void>;
@@ -2530,6 +2541,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPersistenceMode('local');
   };
 
+  // Self-service account deletion (App Store 5.1.1(v) / Google Play requirement).
+  // Deletes the user's own Firestore data *while still authenticated*, then deletes the
+  // Firebase Auth login. If Firebase reports the session is too old, we re-authenticate
+  // (password credential, or Google popup) and retry once.
+  const deleteMyAccount = async (password?: string): Promise<{ success: boolean; message?: string }> => {
+    const fbUser = auth.currentUser;
+    const cu = state.currentUser;
+    if (!fbUser || !cu) return { success: false, message: 'You are not signed in.' };
+
+    // Stop snapshot listeners first so they don't fire on the doc we're about to delete.
+    stopListeners();
+
+    // 1) Delete the user's own data (allowed by rules for the authenticated user).
+    try {
+      await deleteDoc(doc(db, 'users', cu.id));
+      if (cu.role === Role.TEACHER) {
+        await deleteDoc(doc(db, 'teachers', cu.id));
+      }
+    } catch (e) {
+      console.error('deleteMyAccount: failed to delete Firestore data', e);
+      // Continue — still attempt to delete the auth login so the account is removed.
+    }
+
+    // 2) Delete the Firebase Auth login, re-authenticating if the session is stale.
+    const isPasswordAccount = fbUser.providerData.some(p => p?.providerId === 'password');
+    try {
+      await fbDeleteUser(fbUser);
+    } catch (e: any) {
+      if (e?.code === 'auth/requires-recent-login') {
+        try {
+          if (isPasswordAccount) {
+            if (!password) {
+              return { success: false, message: 'Please enter your password to confirm account deletion.' };
+            }
+            const cred = EmailAuthProvider.credential(fbUser.email || '', password);
+            await reauthenticateWithCredential(fbUser, cred);
+          } else {
+            await reauthenticateWithPopup(fbUser, googleProvider);
+          }
+          await fbDeleteUser(fbUser);
+        } catch (e2: any) {
+          console.error('deleteMyAccount: re-auth/delete failed', e2);
+          return {
+            success: false,
+            message: e2?.message || 'Could not confirm it was you. Please sign out, sign back in, and try again.'
+          };
+        }
+      } else {
+        console.error('deleteMyAccount: auth delete failed', e);
+        return { success: false, message: e?.message || 'Failed to delete account.' };
+      }
+    }
+
+    // 3) Reset local app state.
+    setState(defaultState);
+    setPersistenceMode('local');
+    return { success: true };
+  };
+
   // ---------------------------
   // Provide
   // ---------------------------
@@ -2543,6 +2613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       login,
       loginWithGoogle,
       logout,
+      deleteMyAccount,
       addLesson,
       updateLesson,
       repairSchoolRates,
