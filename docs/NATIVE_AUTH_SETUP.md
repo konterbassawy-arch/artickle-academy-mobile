@@ -43,7 +43,12 @@ dev environment. Then:
 - Verify: Google sign-in sheet appears natively, login works, and Delete Account → Google
   re-confirm works.
 
-## Sign in with Apple (the other Phase C item)
-The same plugin handles it (`apple.com` is already in the providers list). It additionally needs
-an Apple **Services ID** + key from the Apple Developer portal — **[You]**, once that account is
-active. Code/UI for the Apple button is not added yet; it's the next task after this.
+## Sign in with Apple
+**Code + UI are done** — a "Sign in with Apple" button shows on the iOS build (hidden on web /
+Android), wired to the native Apple sheet via the same plugin (`loginWithApple` in AppContext).
+
+To make it run on a device it still needs **[You]**, once the Apple Developer account is active:
+- In Xcode, enable the **Sign in with Apple** capability on the App target.
+- In the Apple Developer portal, enable Sign in with Apple for the App ID, and create the
+  **Services ID** + key; add the key to Firebase console → Authentication → Apple provider.
+- Then build & test on an iOS device/simulator (Xcode required — not available here).

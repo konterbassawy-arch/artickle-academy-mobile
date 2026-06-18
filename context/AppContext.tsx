@@ -43,6 +43,7 @@ import {
   signInWithRedirect,
   signInWithCredential,
   GoogleAuthProvider,
+  OAuthProvider,
   onAuthStateChanged,
   signOut,
   deleteUser as fbDeleteUser,
@@ -179,6 +180,8 @@ interface AppContextType extends AppState {
   authError: string | null;
   login: (email: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message?: string }>;
+  /** Sign in with Apple (native on iOS) — required by Apple guideline 4.8 since Google login is offered. */
+  loginWithApple: () => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   /**
    * Deletes the signed-in user's own account: their Firestore record(s) and their
@@ -2501,6 +2504,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return GoogleAuthProvider.credential(idToken, accessToken);
   };
 
+  // Sign in with Apple — mandatory on iOS because the app offers Google login (Apple
+  // guideline 4.8). Uses the native Apple sheet via the plugin, then signs into the
+  // Firebase JS SDK with the resulting OAuth credential (idToken + nonce).
+  const loginWithApple = async () => {
+    try {
+      const result = await FirebaseAuthentication.signInWithApple();
+      const provider = new OAuthProvider('apple.com');
+      const credential = provider.credential({
+        idToken: result.credential?.idToken ?? undefined,
+        rawNonce: result.credential?.nonce ?? undefined,
+      });
+      await signInWithCredential(auth, credential);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Sign in with Apple failed' };
+    }
+  };
+
   const loginWithGoogle = async () => {
     try {
       if (isNativePlatform()) {
@@ -2645,6 +2666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       authError,
       login,
       loginWithGoogle,
+      loginWithApple,
       logout,
       deleteMyAccount,
       isPasswordAccount,
