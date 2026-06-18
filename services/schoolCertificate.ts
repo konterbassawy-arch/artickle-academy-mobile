@@ -8,9 +8,9 @@
  */
 
 // @ts-ignore — CDN imports (match certificateExport.ts)
-import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc, setDoc as firestoreSetDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc, setDoc as firestoreSetDoc } from 'firebase/firestore';
 // @ts-ignore
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getApp } from 'firebase/app';
 
 /** A signatory printed in the certificate footer (e.g. Head of Music). */
 export interface SchoolSignatory {

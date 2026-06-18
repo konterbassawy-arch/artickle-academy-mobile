@@ -21,8 +21,8 @@ import { generatePolishReportDocx, generateTermReportDocx } from './wordExport';
 
 export type ExportFileType = 'pdf' | 'word' | 'both';
 // @ts-ignore — CDN import for Firestore
-import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'firebase/firestore';
+import { getApp } from 'firebase/app';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

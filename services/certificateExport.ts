@@ -24,9 +24,9 @@ import { CertificateSnapshot } from './aiSummary/reportTypes';
 import { loadSchoolCertificateConfig, SchoolCertificateConfig, SchoolSignatory } from './schoolCertificate';
 import { getRelevantPeriodsForStudent } from './schoolPeriodProgress';
 // @ts-ignore — CDN imports (match bulkReportService.ts) for reading the teacher signature from Firestore
-import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'firebase/firestore';
 // @ts-ignore
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getApp } from 'firebase/app';
 
 /**
  * Minimal shape needed to render a certificate. An Enrollment satisfies it,

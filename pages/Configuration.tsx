@@ -11,9 +11,9 @@ import { normalizeInstrument } from '../services/rateService';
 import { SchoolPeriodManager } from './admin/SchoolPeriodManager';
 import { ParentOnboarding } from './admin/ParentOnboarding';
 // @ts-ignore — CDN imports for Firebase Storage + Firestore
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getFirestore, doc as firestoreDoc, setDoc as firestoreSetDoc, deleteDoc as firestoreDeleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getApp } from 'firebase/app';
+import { getFirestore, doc as firestoreDoc, setDoc as firestoreSetDoc, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore';
 
 const normKey = (s: any) => String(s || '').trim().toLowerCase();
 

@@ -12,7 +12,7 @@
  *     with each entry's Firestore doc ID attached as `.id`.
  */
 
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getApp } from 'firebase/app';
 import {
   getFirestore,
   doc,
@@ -22,7 +22,7 @@ import {
   collection,
   getDocs,
   onSnapshot,
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from 'firebase/firestore';
 import { SavedAIReport } from './reportTypes';
 
 function getDb(): any {

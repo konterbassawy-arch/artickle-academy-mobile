@@ -1,3 +1,5 @@
+import './src/vendor.ts'; // bundle jsPDF / SheetJS / JSZip (replaces former CDN <script> tags)
+import './index.css'; // Tailwind + global styles, compiled at build time (replaces CDN Tailwind)
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

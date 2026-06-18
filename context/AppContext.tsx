@@ -15,7 +15,7 @@ import { getInvoicePaidAmount, resolveInvoiceStatusAfterPayment } from '../servi
 import { resolvePayrollStatusAfterSettlement } from '../services/payrollService';
 
 // Firebase Imports using standard CDN (this project is CDN-based)
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
   collection,
@@ -33,7 +33,7 @@ import {
   serverTimestamp,
   query,
   where
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from 'firebase/firestore';
 
 import {
   getAuth,
@@ -44,7 +44,7 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+} from 'firebase/auth';
 
 // ---------------------------
 // Config

@@ -14,13 +14,13 @@
  * Uses getApp() to reuse the already-initialized Firebase app from AppContext.
  */
 
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getApp } from 'firebase/app';
 import {
   getFirestore,
   doc,
   setDoc,
   getDoc,
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from 'firebase/firestore';
 
 import {
   TeachingAssignment,

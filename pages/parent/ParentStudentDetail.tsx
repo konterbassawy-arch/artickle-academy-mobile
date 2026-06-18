@@ -27,8 +27,8 @@ import { generateCertificatePDF, certInputFromSnapshot } from '../../services/ce
 import { batchPolishForPdf } from '../../services/aiSummary/rewriteText';
 import { resolveTermReportSections } from '../../services/aiSummary/resolveAiContent';
 // @ts-ignore — CDN import for Firestore (read signature base64 for PDF)
-import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'firebase/firestore';
+import { getApp } from 'firebase/app';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Read-only reports card — shows saved progress reviews + signed term reports
