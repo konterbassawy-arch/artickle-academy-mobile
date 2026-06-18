@@ -39,3 +39,6 @@ backups/
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase deploy cache
+.firebase/

@@ -1,8 +1,40 @@
 /* ARTickle Academy – base styles */
-/* Tailwind utility classes are loaded via CDN in index.html */
-/* This file provides fallback constraints for critical elements */
+/* Tailwind is now compiled at build time (PostCSS + tailwind.config.js), not via CDN. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Logo safety: ensure logo never exceeds container even if Tailwind CDN fails */
+/* Global styles (moved here from the inline <style> block in index.html) */
+body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Logo safety: ensure logo never exceeds container */
 img[src*="logo"] {
   max-width: 100%;
   height: auto;
