@@ -46,6 +46,7 @@ import { LinkPreviewModal } from '../../components/enrollmentReview/LinkPreviewM
 import { ChooseEnrollmentModal } from '../../components/enrollmentReview/ChooseEnrollmentModal';
 import { UnlinkPreviewModal } from '../../components/enrollmentReview/UnlinkPreviewModal';
 import { BatchLinkPreviewModal, BatchLinkItem } from '../../components/enrollmentReview/BatchLinkPreviewModal';
+import { matchesSearch } from '../../services/searchUtils';
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
@@ -154,8 +155,7 @@ export const EnrollmentReview: React.FC = () => {
       }
       if (filters.teacherId && item.lesson.teacherId !== filters.teacherId) return false;
       if (filters.studentSearch.trim()) {
-        const q = filters.studentSearch.trim().toLowerCase();
-        if (!item.lesson.studentNames.some(n => n.toLowerCase().includes(q))) return false;
+        if (!matchesSearch(filters.studentSearch, item.lesson.studentNames)) return false;
       }
       if (filters.instrument) {
         const li = ((item.lesson as any).instrument as string | undefined) ?? '';

@@ -16,6 +16,7 @@ import {
   exportStudentBulkExcel,
   exportStudentBulkPDF,
 } from '../../services/studentBulkExport';
+import { matchesSearch } from '../../services/searchUtils';
 
 export const AdminStudents: React.FC = () => {
   const { students, teachers, schools, lessons, enrollments, schoolEnrollmentPeriods } = useApp();
@@ -77,13 +78,8 @@ export const AdminStudents: React.FC = () => {
     if (gradeFilter !== 'all') result = result.filter(s => s.yearGrade === gradeFilter);
     if (renewalsOnly) result = result.filter(s => s.alertLevel !== 'none');
     if (search.trim()) {
-      const q = search.toLowerCase();
       result = result.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.instrument.toLowerCase().includes(q) ||
-        s.teacherName.toLowerCase().includes(q) ||
-        s.schoolName.toLowerCase().includes(q) ||
-        (s.email?.toLowerCase().includes(q) ?? false),
+        matchesSearch(search, [s.name, s.instrument, s.teacherName, s.schoolName, s.email]),
       );
     }
     return result;

@@ -22,6 +22,7 @@ import {
   normalizeInstrument
 } from '../../services/rateService';
 import { exportInvoiceExcel, exportInvoicePDF } from '../../services/invoiceExportService';
+import { matchesSearch } from '../../services/searchUtils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -141,11 +142,8 @@ export const InvoiceManagement: React.FC = () => {
     let list = invoices;
     if (statusFilter !== 'all') list = list.filter(inv => inv.status === statusFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       list = list.filter(inv =>
-        inv.payerName.toLowerCase().includes(q) ||
-        inv.invoiceNumber.toLowerCase().includes(q) ||
-        (inv.notes || '').toLowerCase().includes(q)
+        matchesSearch(search, [inv.payerName, inv.invoiceNumber, inv.notes])
       );
     }
     return list;

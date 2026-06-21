@@ -14,12 +14,19 @@ import { Student, Lesson, Enrollment, SchoolEnrollmentPeriod } from '../types';
 import { ReportType, SavedAIReport, PROMPT_VERSION, PROVIDER_VERSION } from './aiSummary/reportTypes';
 import { generateReport, AnchorReport } from './aiSummary/generateReport';
 import { saveReport, fetchSavedReports } from './aiSummary/savedReports';
-import { batchPolishForPdf } from './aiSummary/rewriteText';
+import { resolvePolishedNotes } from './polishedNotesCache';
 import { resolveTermReportSections } from './aiSummary/resolveAiContent';
 import { generatePolishReportPDF, generateTermReportPDF } from './pdfExport';
 import { generatePolishReportDocx, generateTermReportDocx } from './wordExport';
+import { renderCertificatePDFs, CertInput } from './certificateExport';
 
 export type ExportFileType = 'pdf' | 'word' | 'both';
+
+/** Bulk export output formats. */
+export type BulkExportMode = 'zip' | 'zip-per-student' | 'merged';
+
+/** Progress callback — label, when present, names the current student. */
+export type BulkExportProgress = (done: number, total: number, label?: string) => void;
 // @ts-ignore — CDN import for Firestore
 import { getFirestore, doc as firestoreDoc, getDoc as firestoreGetDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
@@ -196,17 +203,20 @@ export interface BulkExportEntry {
 
 export async function bulkExportReports(
   entries: BulkExportEntry[],
-  exportMode: 'zip' | 'merged',
-  onProgress?: (done: number, total: number) => void,
+  exportMode: BulkExportMode,
+  onProgress?: BulkExportProgress,
   fileType: ExportFileType = 'pdf',
+  certInputs?: CertInput[],
 ): Promise<void> {
   const dateTag = new Date().toISOString().slice(0, 10);
 
   if (exportMode === 'zip') {
-    await exportAsZip(entries, dateTag, fileType, onProgress);
+    await exportAsZip(entries, dateTag, fileType, certInputs, onProgress);
+  } else if (exportMode === 'zip-per-student') {
+    await exportAsPerStudentZip(entries, dateTag, certInputs, onProgress);
   } else {
     // Merged "Single PDF" mode is inherently PDF — fileType is ignored here.
-    await exportAsMergedPDF(entries, dateTag, onProgress);
+    await exportAsMergedPDF(entries, dateTag, certInputs, onProgress);
   }
 }
 
@@ -214,7 +224,8 @@ async function exportAsZip(
   entries: BulkExportEntry[],
   dateTag: string,
   fileType: ExportFileType,
-  onProgress?: (done: number, total: number) => void,
+  certInputs: CertInput[] | undefined,
+  onProgress?: BulkExportProgress,
 ): Promise<void> {
   const JSZip = (window as any).JSZip;
   if (!JSZip) { alert('JSZip library not loaded — please refresh.'); return; }
@@ -228,7 +239,8 @@ async function exportAsZip(
   const total = entries.reduce(
     (sum, e) => sum + ((e.polishReport ? 1 : 0) + (e.termReport ? 1 : 0)) * filesPerReport,
     0,
-  );
+  ) + (certInputs?.length ?? 0);
+  onProgress?.(0, total);
 
   for (const entry of entries) {
     const safeName = entry.student.name.replace(/[^a-z0-9]/gi, '_');
@@ -312,6 +324,16 @@ async function exportAsZip(
     }
   }
 
+  // Certificate PDFs go into the SAME zip as the reports.
+  if (certInputs?.length) {
+    const certPdfs = await renderCertificatePDFs(certInputs);
+    for (const { name, bytes } of certPdfs) {
+      zip.file(name, bytes);
+      done++;
+      onProgress?.(done, total);
+    }
+  }
+
   const content = await zip.generateAsync({ type: 'blob' });
   triggerDownload(content, `BulkReports_${dateTag}.zip`);
 }
@@ -319,13 +341,16 @@ async function exportAsZip(
 async function exportAsMergedPDF(
   entries: BulkExportEntry[],
   dateTag: string,
-  onProgress?: (done: number, total: number) => void,
+  certInputs: CertInput[] | undefined,
+  onProgress?: BulkExportProgress,
 ): Promise<void> {
   // Collect all individual PDF blobs then merge via pdf-lib if available,
   // otherwise fall back to sequential zip with a "_merged" name note.
   const blobs: { name: string; bytes: Uint8Array }[] = [];
   let done = 0;
-  const total = entries.reduce((sum, e) => sum + (e.polishReport ? 1 : 0) + (e.termReport ? 1 : 0), 0);
+  const total = entries.reduce((sum, e) => sum + (e.polishReport ? 1 : 0) + (e.termReport ? 1 : 0), 0)
+    + (certInputs?.length ?? 0);
+  onProgress?.(0, total);
 
   for (const entry of entries) {
     const safeName = entry.student.name.replace(/[^a-z0-9]/gi, '_');
@@ -372,29 +397,159 @@ async function exportAsMergedPDF(
     }
   }
 
+  // Certificate PDFs get appended to the same merged document.
+  if (certInputs?.length) {
+    const certPdfs = await renderCertificatePDFs(certInputs);
+    for (const { name, bytes } of certPdfs) {
+      blobs.push({ name, bytes });
+      done++;
+      onProgress?.(done, total);
+    }
+  }
+
   if (blobs.length === 0) return;
 
   // Try pdf-lib merge
   const PDFLib = (window as any).PDFLib;
   if (PDFLib) {
-    const merged = await PDFLib.PDFDocument.create();
-    for (const { bytes } of blobs) {
-      const src = await PDFLib.PDFDocument.load(bytes);
-      const pages = await merged.copyPages(src, src.getPageIndices());
-      pages.forEach((p: any) => merged.addPage(p));
-    }
-    const mergedBytes = await merged.save();
+    const mergedBytes = await mergePdfBytes(PDFLib, blobs.map(b => b.bytes));
     triggerDownload(new Blob([mergedBytes], { type: 'application/pdf' }), `BulkReports_${dateTag}.pdf`);
     return;
   }
 
-  // pdf-lib not available — fall back to zip with note in filename
+  // pdf-lib not available — fall back to zip with note in filename.
+  // Strip any trailing ".pdf" before appending so names don't double up.
   const JSZip = (window as any).JSZip;
   if (!JSZip) { alert('No PDF merge library available — please refresh.'); return; }
   const zip = new JSZip();
-  blobs.forEach(({ name, bytes }) => zip.file(`${name}_${dateTag}.pdf`, bytes));
+  blobs.forEach(({ name, bytes }) => zip.file(`${name.replace(/\.pdf$/i, '')}_${dateTag}.pdf`, bytes));
   const content = await zip.generateAsync({ type: 'blob' });
   triggerDownload(content, `BulkReports_${dateTag}.zip`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-student zip: one merged PDF per student (all their reports + certificate),
+// all in a single zip. Progress is reported up front and per student so the bar
+// is visible immediately and names the student currently rendering.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportAsPerStudentZip(
+  entries: BulkExportEntry[],
+  dateTag: string,
+  certInputs: CertInput[] | undefined,
+  onProgress?: BulkExportProgress,
+): Promise<void> {
+  const JSZip = (window as any).JSZip;
+  if (!JSZip) { alert('JSZip library not loaded — please refresh.'); return; }
+  const PDFLib = (window as any).PDFLib;
+  if (!PDFLib) { alert('PDF merge library not loaded — please refresh.'); return; }
+
+  // Group entries by student, preserving first-seen order.
+  const order: string[] = [];
+  const byStudent = new Map<string, BulkExportEntry[]>();
+  for (const e of entries) {
+    if (!byStudent.has(e.student.id)) { byStudent.set(e.student.id, []); order.push(e.student.id); }
+    byStudent.get(e.student.id)!.push(e);
+  }
+
+  // renderCertificatePDFs is 1:1 with certInputs, so index i aligns with
+  // certInputs[i]. Key the rendered bytes by the cert's studentId (falling back
+  // to its id) so each student's certificate(s) can be attached.
+  const certBytesByStudent = new Map<string, Uint8Array[]>();
+  if (certInputs?.length) {
+    const certPdfs = await renderCertificatePDFs(certInputs);
+    certInputs.forEach((ci, i) => {
+      const key = ci.studentId ?? ci.id;
+      if (!certBytesByStudent.has(key)) certBytesByStudent.set(key, []);
+      if (certPdfs[i]) certBytesByStudent.get(key)!.push(certPdfs[i].bytes);
+    });
+  }
+
+  const zip = new JSZip();
+  const total = order.length;
+  let done = 0;
+  const firstStudent = byStudent.get(order[0])?.[0]?.student;
+  onProgress?.(0, total, firstStudent?.name);
+
+  const used = new Set<string>();
+
+  for (const studentId of order) {
+    const studentEntries = byStudent.get(studentId)!;
+    const student = studentEntries[0].student;
+    onProgress?.(done, total, student.name);
+
+    const parts: Uint8Array[] = [];
+
+    for (const entry of studentEntries) {
+      const sortedLessons = entry.lessons.slice().sort((a, b) => a.date.localeCompare(b.date));
+
+      if (entry.polishReport) {
+        const polishedNotes = await buildPolishedNotes(sortedLessons);
+        const blob = await generatePolishReportPDF(
+          sortedLessons,
+          entry.student,
+          entry.schoolName,
+          entry.polishReport.text,
+          polishedNotes,
+          entry.teacherName,
+          entry.polishReport.periodName,
+          'blob',
+        ) as Uint8Array | undefined;
+        if (blob) parts.push(blob);
+      }
+
+      if (entry.termReport) {
+        const sections = resolveTermReportSections(entry.termReport.text);
+        const sigDataUrl = entry.teacherSignatureUrl
+          ? await loadSignatureDataUrl(entry.student.teacherId)
+          : undefined;
+        const blob = await generateTermReportPDF(
+          sortedLessons,
+          entry.student,
+          entry.schoolName,
+          sections,
+          entry.teacherName,
+          entry.termReport.periodName,
+          'blob',
+          entry.termReport.scores,
+          entry.termReport.approvedByName,
+          entry.teacherReportDisplayName,
+          sigDataUrl,
+        ) as Uint8Array | undefined;
+        if (blob) parts.push(blob);
+      }
+    }
+
+    // Append this student's certificate(s).
+    for (const bytes of certBytesByStudent.get(studentId) ?? []) parts.push(bytes);
+
+    if (parts.length > 0) {
+      const merged = await mergePdfBytes(PDFLib, parts);
+      const safeName = student.name.replace(/[^a-z0-9]/gi, '_');
+      let name = `${safeName}_${dateTag}.pdf`;
+      if (used.has(name)) name = `${safeName}_${studentId}_${dateTag}.pdf`;
+      used.add(name);
+      zip.file(name, merged);
+    }
+
+    done++;
+    onProgress?.(done, total, student.name);
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' });
+  triggerDownload(content, `BulkReports_${dateTag}.zip`);
+}
+
+/** Merge several PDF byte arrays into one. Returns the single input unchanged
+ *  when there's only one part. Mixed page sizes are fine. */
+async function mergePdfBytes(PDFLib: any, parts: Uint8Array[]): Promise<Uint8Array> {
+  if (parts.length === 1) return parts[0];
+  const merged = await PDFLib.PDFDocument.create();
+  for (const bytes of parts) {
+    const src = await PDFLib.PDFDocument.load(bytes);
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    pages.forEach((p: any) => merged.addPage(p));
+  }
+  return merged.save();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -413,11 +568,7 @@ async function loadSignatureDataUrl(teacherId: string): Promise<string | undefin
 }
 
 async function buildPolishedNotes(lessons: Lesson[]): Promise<Map<string, string>> {
-  const entries = lessons
-    .filter(l => l.learning || l.notes)
-    .map(l => ({ id: l.id, text: [l.learning, l.notes].filter(Boolean).join(' | ') }));
-  if (entries.length === 0) return new Map();
-  return batchPolishForPdf(entries);
+  return resolvePolishedNotes(lessons);
 }
 
 function triggerDownload(blob: Blob, filename: string): void {

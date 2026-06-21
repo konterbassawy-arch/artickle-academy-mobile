@@ -38,14 +38,28 @@ Rules (strict):
 export async function batchPolishForPdf(
   entries: Array<{ id: string; text: string }>,
 ): Promise<Map<string, string>> {
+  return (await batchPolishForPdfStatus(entries)).texts;
+}
+
+/**
+ * Same as batchPolishForPdf, but ALSO reports which ids the AI genuinely
+ * polished (vs. fell back to the original). Callers that cache results use
+ * `polished` so they never persist a fallback-to-original as if it were AI work.
+ *
+ * Returns: { texts: Map<lessonId, text>, polished: Set<lessonId> }
+ */
+export async function batchPolishForPdfStatus(
+  entries: Array<{ id: string; text: string }>,
+): Promise<{ texts: Map<string, string>; polished: Set<string> }> {
   // Build default result (originals)
-  const result = new Map<string, string>(entries.map(e => [e.id, e.text]));
+  const texts = new Map<string, string>(entries.map(e => [e.id, e.text]));
+  const polished = new Set<string>();
 
   const url = (import.meta as any).env?.VITE_AI_FUNCTION_URL as string | undefined;
-  if (!url) return result;
+  if (!url) return { texts, polished };
 
   const withContent = entries.filter(e => e.text.trim());
-  if (withContent.length === 0) return result;
+  if (withContent.length === 0) return { texts, polished };
 
   const numbered = withContent.map((e, i) => `${i + 1}. ${e.text.trim()}`).join('\n');
 
@@ -59,24 +73,27 @@ export async function batchPolishForPdf(
         reportType: 'polish_report',
       }),
     });
-    if (!response.ok) return result;
+    if (!response.ok) return { texts, polished };
 
     const data = (await response.json()) as { text?: string };
-    if (!data.text) return result;
+    if (!data.text) return { texts, polished };
 
     // Parse numbered lines — each starts with "N."
     const lines = data.text.split('\n').filter(l => /^\s*\d+\.\s/.test(l));
-    if (lines.length !== withContent.length) return result; // mismatch → use originals
+    if (lines.length !== withContent.length) return { texts, polished }; // mismatch → use originals
 
     lines.forEach((line, i) => {
-      const polished = line.replace(/^\s*\d+\.\s*/, '').trim();
-      if (polished) result.set(withContent[i].id, polished);
+      const cleaned = line.replace(/^\s*\d+\.\s*/, '').trim();
+      if (cleaned) {
+        texts.set(withContent[i].id, cleaned);
+        polished.add(withContent[i].id);
+      }
     });
   } catch {
     // Network or parse error — return originals
   }
 
-  return result;
+  return { texts, polished };
 }
 
 export async function rewriteLessonNote(text: string): Promise<string> {

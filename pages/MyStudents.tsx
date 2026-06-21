@@ -6,6 +6,7 @@ import { SchoolPeriodListBadge } from '../components/SchoolPeriodListBadge';
 import { studentsToExcel, downloadExcel, STUDENT_IMPORT_INSTRUCTIONS } from '../services/exportUtils';
 import { parseStudentExcel } from '../services/importUtils';
 import { ImportResultsModal } from '../components/ImportResultsModal';
+import { matchesSearch } from '../services/searchUtils';
 import {
   exportStudentBulkExcel,
   exportStudentBulkPDF,
@@ -67,11 +68,8 @@ export const MyStudents: React.FC = () => {
     let result = myStudents;
     if (gradeFilter !== 'all') result = result.filter(s => s.yearGrade === gradeFilter);
     if (nameSearch.trim()) {
-      const q = nameSearch.trim().toLowerCase();
       result = result.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.instrument.toLowerCase().includes(q) ||
-        (s.email?.toLowerCase().includes(q) ?? false)
+        matchesSearch(nameSearch, [s.name, s.instrument, s.email])
       );
     }
     return result;

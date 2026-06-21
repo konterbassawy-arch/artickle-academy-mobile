@@ -10,6 +10,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LessonStatus, DeliveryMode, getDeliveryMode } from '../../types';
+import { matchesSearch } from '../../services/searchUtils';
 
 export const StudentLessons: React.FC = () => {
   const { lessons } = useApp();
@@ -20,11 +21,8 @@ export const StudentLessons: React.FC = () => {
     let result = [...lessons]; // already filtered to self in AppContext
 
     if (search) {
-      const q = search.toLowerCase();
       result = result.filter(l =>
-        l.schoolName.toLowerCase().includes(q) ||
-        l.teacherName.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q)
+        matchesSearch(search, [l.schoolName, l.teacherName, l.id])
       );
     }
 

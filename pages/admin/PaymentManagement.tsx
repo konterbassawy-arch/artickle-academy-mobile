@@ -9,6 +9,7 @@ import {
   Role,
   getInvoiceBalanceDue
 } from '../../types';
+import { matchesSearch } from '../../services/searchUtils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -101,12 +102,8 @@ export const PaymentManagement: React.FC = () => {
     let list = payments;
     if (statusFilter !== 'all') list = list.filter(p => p.status === statusFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       list = list.filter(p =>
-        p.invoiceNumber.toLowerCase().includes(q) ||
-        p.payerName.toLowerCase().includes(q) ||
-        (p.reference || '').toLowerCase().includes(q) ||
-        (p.notes || '').toLowerCase().includes(q)
+        matchesSearch(search, [p.invoiceNumber, p.payerName, p.reference, p.notes])
       );
     }
     return [...list].sort((a, b) => b.createdAt - a.createdAt);

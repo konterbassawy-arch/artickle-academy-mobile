@@ -15,6 +15,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Role, User } from '../../types';
+import { matchesSearch } from '../../services/searchUtils';
 
 const inputCls = 'w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-600';
 const selectCls = 'w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all';
@@ -65,13 +66,9 @@ export const UserManagement: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const filteredUsers = useMemo(() => {
-    const q = search.toLowerCase();
-    if (!q) return users;
+    if (!search.trim()) return users;
     return users.filter(u =>
-      u.name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.role?.toLowerCase().includes(q) ||
-      u.id?.toLowerCase().includes(q)
+      matchesSearch(search, [u.name, u.email, u.role, u.id])
     );
   }, [users, search]);
 

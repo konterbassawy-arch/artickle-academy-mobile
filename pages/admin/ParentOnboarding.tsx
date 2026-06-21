@@ -13,6 +13,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Role } from '../../types';
+import { matchesSearch } from '../../services/searchUtils';
 
 type Step = 'select-parent' | 'link-children' | 'done';
 
@@ -43,12 +44,9 @@ export const ParentOnboarding: React.FC = () => {
   );
 
   const filteredStudents = useMemo(() => {
-    const q = studentSearch.toLowerCase();
-    if (!q) return students;
+    if (!studentSearch.trim()) return students;
     return students.filter(s =>
-      s.name?.toLowerCase().includes(q) ||
-      s.instrument?.toLowerCase().includes(q) ||
-      schools.find(sc => sc.id === s.schoolId)?.name?.toLowerCase().includes(q)
+      matchesSearch(studentSearch, [s.name, s.instrument, schools.find(sc => sc.id === s.schoolId)?.name])
     );
   }, [students, studentSearch, schools]);
 

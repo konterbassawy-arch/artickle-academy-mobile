@@ -28,6 +28,7 @@ import {
 } from '../services/bulkReportService';
 import { resolveCertInput, generateCertificatesZIP, generateCertificatePDF, snapshotFromCertInput, certInputFromSnapshot, buildCompletionLine, certInputFromEnrollment, mergeCertInputs, consumedLessonRange, countPaidLessons, CertInput } from '../services/certificateExport';
 import { loadSchoolCertificateConfig } from '../services/schoolCertificate';
+import { matchesSearch } from '../services/searchUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1224,10 +1225,10 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
   const setGenDone        = gen.setDone;
 
   // ── Export state ──────────────────────────────────────────────────────────
-  const [exportMode,        setExportMode]        = useState<'zip' | 'merged'>('zip');
+  const [exportMode,        setExportMode]        = useState<'zip' | 'zip-per-student' | 'merged'>('zip-per-student');
   const [exportFileType,    setExportFileType]    = useState<'pdf' | 'word' | 'both'>('pdf');
   const [exportRunning,     setExportRunning]      = useState(false);
-  const [exportProgress,    setExportProgress]     = useState<{ done: number; total: number } | null>(null);
+  const [exportProgress,    setExportProgress]     = useState<{ done: number; total: number; label?: string } | null>(null);
   const [certExporting,     setCertExporting]      = useState(false);
   const [certProgress,      setCertProgress]       = useState<{ done: number; total: number } | null>(null);
   const [certGenRunning,    setCertGenRunning]     = useState(false);
@@ -1254,12 +1255,8 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
     let r = enrichedStudents;
     if (schoolFilter !== 'all') r = r.filter(s => s.schoolId === schoolFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       r = r.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        (s.instrument ?? '').toLowerCase().includes(q) ||
-        (s.teacherName ?? '').toLowerCase().includes(q) ||
-        (s.schoolName  ?? '').toLowerCase().includes(q),
+        matchesSearch(search, [s.name, s.instrument, s.teacherName, s.schoolName]),
       );
     }
     return r;
@@ -1715,44 +1712,49 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
     if (!exportCoverage || exportRunning) return;
     setExportRunning(true); setExportProgress({ done: 0, total: 0 });
 
-    // Reports ZIP — only when a report type (Progress/Term) is actually selected.
-    if (wantPolish || wantTerm) {
-      const entries: BulkExportEntry[] = selectedStudents.map(student => {
-        const c = exportCoverage.get(student.id) ?? {};
-        const allLessons = lessons.filter(l => l.studentIds?.includes(student.id));
-        const { lessons: pl } = resolvePeriod(student, allLessons);
-        const teacher = teachers.find(t => t.id === student.teacherId);
-        return {
-          student, lessons: pl,
-          schoolName:  schools.find(sc => sc.id === student.schoolId)?.name ?? '',
-          teacherName: teacher?.name ?? student.teacherName,
-          teacherReportDisplayName: teacher?.reportDisplayName,
-          teacherSignatureUrl: teacher?.signatureUrl,
-          polishReport: wantPolish ? c.polish : undefined,
-          termReport:   wantTerm   ? c.term   : undefined,
-        };
-      });
-      const effectiveFileType = exportMode === 'merged' ? 'pdf' : exportFileType;
-      await bulkExportReports(entries, exportMode, (done, total) => setExportProgress({ done, total }), effectiveFileType);
-    }
-
-    // Certificates ZIP — use the saved snapshot when available (preserves edits +
-    // co-branding); otherwise resolve one on the fly so the export is never empty.
-    if (wantCert) {
-      const certInputs = selectedStudents
-        .map(s => {
-          const c = exportCoverage.get(s.id) ?? {};
-          if (c.cert?.certificate) return certInputFromSnapshot(c.cert.certificate, c.cert.text);
-          const sl = lessons.filter(l => l.studentIds?.includes(s.id));
-          const teacher = teachers.find(t => t.id === s.teacherId);
-          const schoolName = schools.find(sc => sc.id === s.schoolId)?.name ?? '';
-          return resolveCertInput(s, enrollments, schoolEnrollmentPeriods, sl, schoolName, teacher?.name ?? s.teacherName);
+    // Build report entries — only when a report type (Progress/Term) is selected.
+    const entries: BulkExportEntry[] = (wantPolish || wantTerm)
+      ? selectedStudents.map(student => {
+          const c = exportCoverage.get(student.id) ?? {};
+          const allLessons = lessons.filter(l => l.studentIds?.includes(student.id));
+          const { lessons: pl } = resolvePeriod(student, allLessons);
+          const teacher = teachers.find(t => t.id === student.teacherId);
+          return {
+            student, lessons: pl,
+            schoolName:  schools.find(sc => sc.id === student.schoolId)?.name ?? '',
+            teacherName: teacher?.name ?? student.teacherName,
+            teacherReportDisplayName: teacher?.reportDisplayName,
+            teacherSignatureUrl: teacher?.signatureUrl,
+            polishReport: wantPolish ? c.polish : undefined,
+            termReport:   wantTerm   ? c.term   : undefined,
+          };
         })
-        .filter((x): x is CertInput => !!x);
-      if (certInputs.length > 0) {
-        await generateCertificatesZIP(certInputs, 'Certificates', (done, total) => setExportProgress({ done, total }));
-      }
-    }
+      : [];
+
+    // Build cert inputs — use the saved snapshot when available (preserves edits +
+    // co-branding); otherwise resolve one on the fly so the export is never empty.
+    const certInputs: CertInput[] | undefined = wantCert
+      ? selectedStudents
+          .map(s => {
+            const c = exportCoverage.get(s.id) ?? {};
+            if (c.cert?.certificate) return certInputFromSnapshot(c.cert.certificate, c.cert.text);
+            const sl = lessons.filter(l => l.studentIds?.includes(s.id));
+            const teacher = teachers.find(t => t.id === s.teacherId);
+            const schoolName = schools.find(sc => sc.id === s.schoolId)?.name ?? '';
+            return resolveCertInput(s, enrollments, schoolEnrollmentPeriods, sl, schoolName, teacher?.name ?? s.teacherName);
+          })
+          .filter((x): x is CertInput => !!x)
+      : undefined;
+
+    // ONE combined download — reports + certificates together.
+    const effectiveFileType = exportMode === 'zip' ? exportFileType : 'pdf';
+    await bulkExportReports(
+      entries,
+      exportMode,
+      (done, total, label) => setExportProgress({ done, total, label }),
+      effectiveFileType,
+      certInputs,
+    );
 
     setExportRunning(false); setExportProgress(null);
   }, [exportCoverage, selectedStudents, lessons, schools, teachers, enrollments, schoolEnrollmentPeriods, wantPolish, wantTerm, wantCert, exportMode, exportFileType, exportRunning, resolvePeriod]);
@@ -2175,7 +2177,7 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
           ))}
           <ReportTypeToggle
             label="Certificate of Completion"
-            sub="Downloads as a separate ZIP of certificate PDFs"
+            sub="Included in the same download as the reports"
             checked={wantCert}
             onChange={() => setWantCert(v => !v)}
           />
@@ -2246,8 +2248,9 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
               {/* Format */}
               <div className="space-y-2">
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Download format</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {([
+                    { m: 'zip-per-student' as const, label: 'One PDF / student', sub: "Each student's reports + certificate in a single file, zipped" },
                     { m: 'zip' as const,    label: 'Zip archive', sub: 'Separate file per student per type' },
                     { m: 'merged' as const, label: 'Single PDF',  sub: 'All reports in one long file' },
                   ]).map(({ m, label, sub }) => (
@@ -2282,14 +2285,29 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
                 </div>
               )}
 
-              {/* Export progress */}
-              {exportRunning && exportProgress && exportProgress.total > 0 && (
+              {/* Export progress — visible immediately while running */}
+              {exportRunning && (
                 <div className="space-y-1.5">
-                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-500 rounded-full transition-all duration-300"
-                      style={{ width: `${(exportProgress.done / exportProgress.total) * 100}%` }} />
-                  </div>
-                  <p className="text-[11px] text-slate-500 text-center">Rendering PDF {exportProgress.done} of {exportProgress.total}…</p>
+                  {!exportProgress || exportProgress.total === 0 ? (
+                    <>
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full w-1/3 bg-primary-500 rounded-full animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 text-center">Preparing export…</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary-500 rounded-full transition-all duration-300"
+                          style={{ width: `${(exportProgress.done / exportProgress.total) * 100}%` }} />
+                      </div>
+                      <p className="text-[11px] text-slate-500 text-center">
+                        {exportProgress.label
+                          ? `Processing ${exportProgress.label}… (${Math.min(exportProgress.done + 1, exportProgress.total)} of ${exportProgress.total})`
+                          : `Rendering ${exportProgress.done} of ${exportProgress.total}…`}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -2300,7 +2318,7 @@ export const BulkReportsPage: React.FC<{ mode?: 'full' | 'export-only' }> = ({ m
               >
                 {exportRunning
                   ? 'Exporting…'
-                  : `Download ${exportMode === 'zip' ? 'Zip' : 'PDF'} · ${exportCovStats.ready + exportCovStats.partial} student${(exportCovStats.ready + exportCovStats.partial) !== 1 ? 's' : ''}`}
+                  : `Download ${exportMode === 'merged' ? 'PDF' : 'Zip'} · ${exportCovStats.ready + exportCovStats.partial} student${(exportCovStats.ready + exportCovStats.partial) !== 1 ? 's' : ''}`}
               </button>
               {exportCovStats.partial > 0 && (
                 <p className="text-[11px] text-amber-400/80 text-center -mt-2">

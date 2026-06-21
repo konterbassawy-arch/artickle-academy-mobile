@@ -680,22 +680,21 @@ export const generateCertificatePDF = async (
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Public: many certificates → one ZIP, one PDF file per enrollment/student.
-// Loads each teacher's saved signature (cached) + the shared admin signature.
-// onProgress(done, total) lets callers drive a progress bar.
+// Public: render many certificates to PDF byte arrays WITHOUT zipping or
+// downloading. Loads each teacher's saved signature (cached) + the shared admin
+// signature + per-school co-branding. Returns one { name, bytes } per input,
+// 1:1 and in input order (so callers can align by index). onProgress(done,total)
+// drives a progress bar. Shared by generateCertificatesZIP and bulk export.
 // ─────────────────────────────────────────────────────────────────────────────
-export const generateCertificatesZIP = async (
+export const renderCertificatePDFs = async (
   enrollments: CertInput[],
-  fileLabel = 'Certificates',
   onProgress?: (done: number, total: number) => void,
-): Promise<void> => {
+): Promise<{ name: string; bytes: Uint8Array }[]> => {
   if (typeof (window as any).jspdf === 'undefined') {
     alert('PDF Library loading… please wait or refresh.');
-    return;
+    return [];
   }
-  const JSZip = (window as any).JSZip;
-  if (!JSZip) { alert('JSZip library not loaded — please refresh.'); return; }
-  if (enrollments.length === 0) return;
+  if (enrollments.length === 0) return [];
 
   const { jsPDF } = (window as any).jspdf;
   const logo = await loadLogoBase64();
@@ -716,7 +715,7 @@ export const generateCertificatesZIP = async (
     }
   }
 
-  const zip = new JSZip();
+  const out: { name: string; bytes: Uint8Array }[] = [];
   const used = new Set<string>();
   const total = enrollments.length;
 
@@ -731,9 +730,31 @@ export const generateCertificatesZIP = async (
     if (used.has(name)) name = `Certificate_${safe}_${certificateId(e)}_${idx}.pdf`;
     used.add(name);
 
-    zip.file(name, doc.output('arraybuffer'));
+    out.push({ name, bytes: new Uint8Array(doc.output('arraybuffer')) });
     onProgress?.(idx + 1, total);
   });
+
+  return out;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public: many certificates → one ZIP, one PDF file per enrollment/student.
+// onProgress(done, total) lets callers drive a progress bar.
+// ─────────────────────────────────────────────────────────────────────────────
+export const generateCertificatesZIP = async (
+  enrollments: CertInput[],
+  fileLabel = 'Certificates',
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> => {
+  const JSZip = (window as any).JSZip;
+  if (!JSZip) { alert('JSZip library not loaded — please refresh.'); return; }
+  if (enrollments.length === 0) return;
+
+  const pdfs = await renderCertificatePDFs(enrollments, onProgress);
+  if (pdfs.length === 0) return;
+
+  const zip = new JSZip();
+  pdfs.forEach(({ name, bytes }) => zip.file(name, bytes));
 
   const blob: Blob = await zip.generateAsync({ type: 'blob' });
   const dateTag = new Date().toISOString().slice(0, 10);

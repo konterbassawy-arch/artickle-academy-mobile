@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { Lesson, LessonStatus } from '../../types';
 import { ViewLessonModal } from '../../components/ViewLessonModal';
 import { EditLessonModal } from '../../components/EditLessonModal';
+import { matchesSearch } from '../../services/searchUtils';
 
 const StatCard: React.FC<{ label: string; value: React.ReactNode; sub?: string }> = ({ label, value, sub }) => (
   <div className="bg-slate-900/60 ring-1 ring-white/5 rounded-2xl p-5">
@@ -58,13 +59,9 @@ export const AdminTeacherDetail: React.FC = () => {
   }, [teacherLessons, schools]);
 
   const filteredLessons = useMemo(() => {
-    const q = search.toLowerCase();
     return teacherLessons
       .filter(l =>
-        !q ||
-        l.studentNames.some(n => n.toLowerCase().includes(q)) ||
-        l.schoolName.toLowerCase().includes(q) ||
-        l.status.toLowerCase().includes(q)
+        matchesSearch(search, [...l.studentNames, l.schoolName, l.status])
       )
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [teacherLessons, search]);

@@ -18,6 +18,7 @@ import {
   exportPayrollZip,
   PayrollRegisterFilters
 } from '../../services/payrollExportService';
+import { matchesSearch } from '../../services/searchUtils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -212,10 +213,8 @@ export const PayrollManagement: React.FC = () => {
       list = list.filter(pr => pr.status === statusFilter);
     }
     if (search.trim()) {
-      const q = search.toLowerCase();
       list = list.filter(pr =>
-        pr.teacherName?.toLowerCase().includes(q) ||
-        pr.payrollNumber?.toLowerCase().includes(q)
+        matchesSearch(search, [pr.teacherName, pr.payrollNumber])
       );
     }
     return list;

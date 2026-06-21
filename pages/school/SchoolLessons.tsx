@@ -13,6 +13,7 @@ import { Lesson, LessonStatus, DeliveryMode, getDeliveryMode, SchoolEnrollmentPe
 import { lessonsToExcel, downloadExcel, LESSON_IMPORT_INSTRUCTIONS } from '../../services/exportUtils';
 import { generateSchoolLessonPDF } from '../../services/pdfExport';
 import { ViewLessonModal } from '../../components/ViewLessonModal';
+import { matchesSearch } from '../../services/searchUtils';
 
 export const SchoolLessons: React.FC = () => {
   const { lessons, students, schools, teachers, schoolEnrollmentPeriods, updateLessonSchoolComment } = useApp(); // already filtered by schoolId in AppContext
@@ -63,11 +64,8 @@ export const SchoolLessons: React.FC = () => {
     let result = [...lessons];
 
     if (search) {
-      const q = search.toLowerCase();
       result = result.filter(l =>
-        l.teacherName.toLowerCase().includes(q) ||
-        l.studentNames.some(n => n.toLowerCase().includes(q)) ||
-        l.id.toLowerCase().includes(q)
+        matchesSearch(search, [l.teacherName, ...l.studentNames, l.id])
       );
     }
 

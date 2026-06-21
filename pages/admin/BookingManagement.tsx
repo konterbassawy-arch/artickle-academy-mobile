@@ -14,6 +14,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BookingStatus, BookingType, Role, DeliveryMode } from '../../types';
 import { resolveTeacherRate } from '../../services/rateService';
+import { matchesSearch } from '../../services/searchUtils';
 
 const inputCls = 'w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-600';
 const selectCls = 'w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all';
@@ -70,13 +71,8 @@ export const BookingManagement: React.FC = () => {
       result = result.filter(b => b.status === statusFilter);
     }
     if (search) {
-      const q = search.toLowerCase();
       result = result.filter(b =>
-        b.studentName?.toLowerCase().includes(q) ||
-        b.teacherName?.toLowerCase().includes(q) ||
-        b.schoolName?.toLowerCase().includes(q) ||
-        b.instrument?.toLowerCase().includes(q) ||
-        b.id?.toLowerCase().includes(q)
+        matchesSearch(search, [b.studentName, b.teacherName, b.schoolName, b.instrument, b.id])
       );
     }
     return result;

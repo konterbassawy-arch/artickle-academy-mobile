@@ -12,7 +12,11 @@
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
+import { PDFDocument } from 'pdf-lib';
 
 (window as any).jspdf = { jsPDF };
 (window as any).XLSX = XLSX;
 (window as any).JSZip = JSZip;
+// pdf-lib — used by bulk export to merge per-student / single-PDF output.
+// Attached in the same { PDFDocument } shape the CDN build exposed as window.PDFLib.
+(window as any).PDFLib = { PDFDocument };

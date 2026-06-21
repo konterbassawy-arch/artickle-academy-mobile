@@ -9,6 +9,7 @@ import { EditLessonModal } from '../components/EditLessonModal';
 import { ViewLessonModal } from '../components/ViewLessonModal';
 import { ImportResultsModal } from '../components/ImportResultsModal';
 import { Attendance } from './Attendance';
+import { matchesSearch } from '../services/searchUtils';
 
 export const LessonLog: React.FC = () => {
   const { lessons, currentUser, updateLesson, deleteLesson, processLessonImport, schools, teachers, students, schoolEnrollmentPeriods } = useApp();
@@ -107,10 +108,8 @@ export const LessonLog: React.FC = () => {
       ...instruments,
     ].map(v => v.toLowerCase());
 
-    // Multi-term: split by comma — lesson matches if ANY term hits something in the corpus (OR logic)
-    const searchTerms = search.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-    const matchesSearch = searchTerms.length === 0 ||
-      searchTerms.some(term => corpus.some(field => field.includes(term)));
+    // Multi-term: split by comma — lesson matches only if EVERY term hits the corpus (AND logic)
+    const searchMatch = matchesSearch(search, corpus);
 
     // Extract date in YYYY-MM-DD format from ISO string
     const lessonDate = l.date.substring(0, 10);
@@ -136,7 +135,7 @@ export const LessonLog: React.FC = () => {
     // School filter (admin only)
     const matchesSchool = schoolFilter === 'all' || l.schoolId === schoolFilter;
 
-    return matchesSearch && matchesDate && matchesUnread && matchesStudent && matchesSchool;
+    return searchMatch && matchesDate && matchesUnread && matchesStudent && matchesSchool;
   });
 
   // --- BULK ACTIONS ---

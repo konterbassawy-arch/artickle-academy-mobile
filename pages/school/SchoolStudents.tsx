@@ -15,6 +15,7 @@ import {
   exportStudentBulkExcel,
   exportStudentBulkPDF,
 } from '../../services/studentBulkExport';
+import { matchesSearch } from '../../services/searchUtils';
 
 const inputCls =
   'bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 placeholder:text-slate-600';
@@ -63,12 +64,8 @@ export const SchoolStudents: React.FC = () => {
     let result = enrichedStudents;
     if (gradeFilter !== 'all') result = result.filter(s => s.yearGrade === gradeFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       result = result.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.instrument.toLowerCase().includes(q) ||
-        s.teacherName.toLowerCase().includes(q) ||
-        (s.email?.toLowerCase().includes(q) ?? false),
+        matchesSearch(search, [s.name, s.instrument, s.teacherName, s.email]),
       );
     }
     return result;

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { matchesSearch } from '../../services/searchUtils';
 import {
   Enrollment,
   EnrollmentStatus,
@@ -174,8 +175,7 @@ export const EnrollmentManagement: React.FC = () => {
   // ---- Derived: single-mode student list after search ----
   const filteredSingleStudentOptions = useMemo(() => {
     if (!singleStudentSearch.trim()) return formStudentOptions;
-    const q = singleStudentSearch.toLowerCase();
-    return formStudentOptions.filter(s => s.label.toLowerCase().includes(q));
+    return formStudentOptions.filter(s => matchesSearch(singleStudentSearch, [s.label]));
   }, [formStudentOptions, singleStudentSearch]);
 
   // ---- Derived: student list for bulk multi-select — filtered by school AND/OR teacher ----
@@ -191,11 +191,7 @@ export const EnrollmentManagement: React.FC = () => {
   // ---- Derived: bulk list after in-panel search ----
   const filteredBulkStudentList = useMemo(() => {
     if (!bulkSearch.trim()) return bulkStudentList;
-    const q = bulkSearch.toLowerCase();
-    return bulkStudentList.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      s.instrument.toLowerCase().includes(q)
-    );
+    return bulkStudentList.filter(s => matchesSearch(bulkSearch, [s.name, s.instrument]));
   }, [bulkStudentList, bulkSearch]);
 
   // ---- Derived: active periods for the currently-selected school ----
@@ -213,13 +209,8 @@ export const EnrollmentManagement: React.FC = () => {
     if (isTeacher)     list = list.filter(e => e.teacherId === currentUser?.id);
     if (statusFilter !== 'all') list = list.filter(e => e.status === statusFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       list = list.filter(e =>
-        e.studentName.toLowerCase().includes(q) ||
-        e.teacherName.toLowerCase().includes(q) ||
-        (e.schoolName || '').toLowerCase().includes(q) ||
-        e.instrument.toLowerCase().includes(q) ||
-        e.id.toLowerCase().includes(q)
+        matchesSearch(search, [e.studentName, e.teacherName, e.schoolName, e.instrument, e.id])
       );
     }
     return list;

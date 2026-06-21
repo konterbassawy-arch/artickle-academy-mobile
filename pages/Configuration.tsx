@@ -8,6 +8,7 @@ import { studentsToExcel, downloadExcel, STUDENT_IMPORT_INSTRUCTIONS } from '../
 import { parseStudentExcel } from '../services/importUtils';
 import { ImportResultsModal } from '../components/ImportResultsModal';
 import { normalizeInstrument } from '../services/rateService';
+import { matchesSearch } from '../services/searchUtils';
 import { SchoolPeriodManager } from './admin/SchoolPeriodManager';
 import { ParentOnboarding } from './admin/ParentOnboarding';
 // @ts-ignore — CDN imports for Firebase Storage + Firestore
@@ -823,24 +824,21 @@ export const Configuration: React.FC = () => {
 
   const filteredStudents = useMemo(() => {
     if (!studentSearch.trim()) return students;
-    const query = studentSearch.toLowerCase();
     return students.filter(s => {
         // Defensive: some legacy student records may be missing fields.
-        const safeId = String((s as any)?.id || '').toLowerCase();
-        const safeName = String((s as any)?.name || '').toLowerCase();
-        const safeInstrument = String((s as any)?.instrument || '').toLowerCase();
-        const safePhone = String((s as any)?.phone || '').toLowerCase();
-
-        const schoolName = String(schools.find(sch => sch.id === (s as any)?.schoolId)?.name || '').toLowerCase();
-        return (
-            safeId.includes(query) ||
-            safeName.includes(query) ||
-            safeInstrument.includes(query) ||
-            schoolName.includes(query) ||
-            (safePhone && safePhone.includes(query))
-        );
+        const schoolName = schools.find(sch => sch.id === (s as any)?.schoolId)?.name;
+        const teacherName = teachers.find(t => t.id === (s as any)?.teacherId)?.name;
+        return matchesSearch(studentSearch, [
+            (s as any)?.id,
+            (s as any)?.name,
+            (s as any)?.instrument,
+            (s as any)?.phone,
+            (s as any)?.email,
+            schoolName,
+            teacherName,
+        ]);
     });
-  }, [students, studentSearch, schools]);
+  }, [students, studentSearch, schools, teachers]);
 
   const startEditing = (item: any) => {
     setEditingId(item.id);
@@ -1458,14 +1456,8 @@ export const Configuration: React.FC = () => {
                     <tbody className="divide-y divide-slate-800/60">
                         {users.filter(u => {
                           if (!userSearch.trim()) return true;
-                          const q = userSearch.trim().toLowerCase();
                           const teacher = teachers.find(t => t.id === u.id);
-                          return (
-                            u.name.toLowerCase().includes(q) ||
-                            u.email.toLowerCase().includes(q) ||
-                            u.role.toLowerCase().includes(q) ||
-                            (teacher?.instrument?.toLowerCase().includes(q))
-                          );
+                          return matchesSearch(userSearch, [u.name, u.email, u.role, teacher?.instrument]);
                         }).map(u => {
                             const teacher = teachers.find(t => t.id === u.id);
 
@@ -1541,7 +1533,7 @@ export const Configuration: React.FC = () => {
                 <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
                 <input
                     type="text"
-                    placeholder="Search students, schools, teachers…"
+                    placeholder="Search by name, instrument, school, teacher… (comma-separate to narrow, e.g. piano, Mr. Smith)"
                     className={`${cfgInputCls} pl-9`}
                     value={studentSearch}
                     onChange={e => setStudentSearch(e.target.value)}

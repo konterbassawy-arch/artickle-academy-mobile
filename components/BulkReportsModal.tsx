@@ -20,6 +20,7 @@ import {
   BulkStudentEntry,
   BulkExportEntry,
 } from '../services/bulkReportService';
+import { matchesSearch } from '../services/searchUtils';
 
 type PeriodScope = 'current' | 'previous' | 'all';
 
@@ -209,12 +210,8 @@ export const BulkReportsModal: React.FC<BulkReportsModalProps> = ({
     let r = students;
     if (schoolFilter !== 'all') r = r.filter(s => s.schoolId === schoolFilter);
     if (search.trim()) {
-      const q = search.toLowerCase();
       r = r.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        (s.instrument ?? '').toLowerCase().includes(q) ||
-        (s.teacherName ?? '').toLowerCase().includes(q) ||
-        (s.schoolName  ?? '').toLowerCase().includes(q),
+        matchesSearch(search, [s.name, s.instrument, s.teacherName, s.schoolName]),
       );
     }
     return r;

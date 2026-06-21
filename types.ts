@@ -182,6 +182,8 @@ export interface Lesson {
   // Evaluation
   notes?: string;
   learning?: string;
+  polishedNote?: string;        // AI-cleaned (learning | notes) for the PDF
+  polishedNoteHash?: string;    // hash of the source text it was built from
   interactivity?: number; // 1-5
   behavior?: number; // 1-5
 

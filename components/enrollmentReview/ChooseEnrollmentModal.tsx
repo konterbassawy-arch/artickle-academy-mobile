@@ -9,6 +9,7 @@
 import React, { useState, useMemo } from 'react';
 import { Lesson, Enrollment, EnrollmentStatus } from '../../types';
 import { getEnrollmentRemaining } from '../../types';
+import { matchesSearch } from '../../services/searchUtils';
 
 interface Props {
   lesson: Lesson;
@@ -61,13 +62,8 @@ export const ChooseEnrollmentModal: React.FC<Props> = ({
 
   const filtered = useMemo(() => {
     if (!search.trim()) return candidates;
-    const q = search.trim().toLowerCase();
     return candidates.filter(
-      e =>
-        e.instrument.toLowerCase().includes(q) ||
-        e.teacherName.toLowerCase().includes(q) ||
-        (e.term?.toLowerCase().includes(q) ?? false) ||
-        (e.academicYear?.toLowerCase().includes(q) ?? false)
+      e => matchesSearch(search, [e.instrument, e.teacherName, e.term, e.academicYear])
     );
   }, [candidates, search]);
 
